@@ -15,8 +15,11 @@ public class BoomPlayer : MonoBehaviour
 
 	public GameObject endGame;
 
+	public Background background;
 	public BoomWave wave;
 	public float chargeSpeed;
+	public float zoomOutSpeed;
+
 	public float reduceSpeed;
 
 	public bool charging;
@@ -29,6 +32,9 @@ public class BoomPlayer : MonoBehaviour
 	{
 		charging = false;
 		instance = this;
+		chargeSpeed = Parameters.Instance.chargeSpeed;
+		zoomOutSpeed = Parameters.Instance.zoomOutSpeed;
+		reduceSpeed = Parameters.Instance.reduceSpeed;
 	}
 
 	void Update()
@@ -56,23 +62,36 @@ public class BoomPlayer : MonoBehaviour
 			Attack();
 		}
 
-		ZoomOut();
+		if (ZoomOut() == false)
+		{
+			ReducePlayer();
+		}
 
 		ScoreManager.Instance.score = Mathf.FloorToInt(score);
 	}
 
-	private void ZoomOut()
+	private void ReducePlayer()
+	{
+		float reduceVal = transform.localScale.x * Time.deltaTime * reduceSpeed;
+		float proportionalReduction = reduceVal / transform.localScale.x;
+
+		transform.localScale = (transform.localScale.x - reduceVal) * Vector3.one;
+		strength -= strength * proportionalReduction;
+	}
+
+	private bool ZoomOut()
 	{
 		if (transform.localScale.x <= 1.0f)
 		{
-			return;
+			return false;
 		}
 
-		float reduceVal = Mathf.Min(Mathf.Max(transform.localScale.x - 1.0f, 1.0f) * Time.deltaTime * reduceSpeed, transform.localScale.x - 1.0f);
+		float reduceVal = Mathf.Min(Mathf.Max(transform.localScale.x - 1.0f, 1.0f) * Time.deltaTime * zoomOutSpeed, transform.localScale.x - 1.0f);
 		float proportionalReduction = reduceVal / transform.localScale.x;
 
 		transform.localScale = (transform.localScale.x - reduceVal) * Vector3.one;
 		wave.transform.localScale = (wave.transform.localScale.x - reduceVal) * Vector3.one;
+		background.zoom *= 1.0f + proportionalReduction;
 
 		for (int enemyIdx = 0; enemyIdx < BoomEnemyManager.Instance.enemies.Count; ++enemyIdx)
 		{
@@ -98,6 +117,7 @@ public class BoomPlayer : MonoBehaviour
 				}
             }
 		}
+		return true;
 	}
 
 	public void EndGame()
@@ -130,7 +150,7 @@ public class BoomPlayer : MonoBehaviour
 			DestroyImmediate(enemy.GetComponent<Collider2D>());
 			enemy.enabled = false;
 			Vector3 toGo = transform.position - enemy.transform.position;
-			float enemySpeed = toGo.magnitude / 0.2f;
+			float enemySpeed = toGo.magnitude * Parameters.Instance.absorbSpeed;
 			while (toGo != Vector3.zero && toGo.magnitude > (transform.localScale.x - enemy.transform.localScale.x) / 2.0f)
 			{
 				yield return new WaitForEndOfFrame();
